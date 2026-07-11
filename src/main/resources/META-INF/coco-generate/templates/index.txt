@@ -1,0 +1,8 @@
+# Built-in template routes in deterministic display order.
+crud
+admin-module
+master-data
+purchase
+sales
+inventory
+finance
