@@ -9,15 +9,17 @@ Coco Generate 是 Coco 生态中的开发期源码生成器和模板包平台。
 
 ## 当前能力
 
-本仓库目前是可运行的初始基座，CLI 已支持：
+本仓库提供可运行的 CRUD 源码生成入口，CLI 支持：
 
 - `help`：显示可用命令；
-- `list`：列出内置模板路线及其元数据；
+- `list`：列出内置模板路线及其实现状态；
 - `init <directory>`：安全创建初始 `coco-generate.yml`，目标文件已存在时拒绝覆盖。
+- `plan <directory>`：只渲染并打印确定性 CRUD 目标，不写入文件；
+- `generate <directory>`：以 `CREATE_NEW` 策略应用同一计划。
 
-当前 catalog 仅包含 `crud`、`admin-module`、`master-data`、`purchase`、`sales`、
-`inventory` 和 `finance` 的元数据。源码生成、Maven 插件和 IDE 集成尚未实现；这些路线
-不是空 Java 模块，也不代表对应业务模板已经交付。
+`crud` 已可执行；`admin-module`、`master-data`、`purchase`、`sales`、`inventory` 和
+`finance` 仍是 metadata-only 路线。Maven 插件和 IDE 集成尚未实现；未实现路线不会创建空
+Java 模块伪装成交付。
 
 ## 运行 CLI
 
@@ -28,6 +30,8 @@ mvn -B -ntp verify
 java -jar target/coco-generate-0.1.0-SNAPSHOT.jar help
 java -jar target/coco-generate-0.1.0-SNAPSHOT.jar list
 java -jar target/coco-generate-0.1.0-SNAPSHOT.jar init ./example
+java -jar target/coco-generate-0.1.0-SNAPSHOT.jar plan ./example
+java -jar target/coco-generate-0.1.0-SNAPSHOT.jar generate ./example
 ```
 
 开发时也可以通过 Maven 调用同一个入口：
@@ -43,6 +47,9 @@ Coco Generate 只在开发期运行并写出普通源码。它不能演变为运
 
 详细边界与迁移方案见
 [docs/specs/2026-07-11-coco-generate-product-boundary.md](docs/specs/2026-07-11-coco-generate-product-boundary.md)。
+CLI 优先读取 `coco-generate.yml`；兼容窗口内仅存在旧 `coco-codegen.yml` 的项目仍可读取，
+两个文件同时存在则失败关闭。输出根为 `src/main/java`，已有文件、不安全路径与符号链接逃逸均
+会拒绝。旧 `coco:generate` 仍由 coco-framework 在其另行公告的兼容窗口内维护。
 
 ## 相关仓库
 

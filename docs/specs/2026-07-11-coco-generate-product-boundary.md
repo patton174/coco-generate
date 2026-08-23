@@ -14,21 +14,26 @@ Coco Generate 是开发期源码生成器和模板平台，负责把显式配置
 - 不替业务项目决定领域模型、事务边界、权限模型或自定义查询；
 - 不让 `coco-framework` 或 `coco-admin` 在运行时依赖生成器。
 
-依赖方向必须保持为：迁移期 `coco-generate -> coco-feature-codegen`，以及产物层面的
-`coco-admin -> generated source`。禁止出现 `coco-framework -> coco-generate`。
+依赖方向必须保持为：`coco-generate` 自有引擎输出源码，以及产物层面的
+`coco-admin -> generated source`。禁止出现 `coco-framework -> coco-generate`；独立引擎
+不得在运行时依赖 framework。
 
 ## 2. 入口模型
 
 ### 2.1 CLI
 
-CLI 是独立、可脚本化的参考入口。初始基座只提供：
+CLI 是独立、可脚本化的参考入口，提供：
 
 - `help`：展示真实可用命令；
 - `list`：读取 classpath catalog 并列出模板路线元数据；
 - `init <directory>`：使用安全默认值创建 `coco-generate.yml`。
+- `plan <directory>`：读取项目规格，打印确定性目标相对路径、内容摘要和 `CREATE_NEW` 动作，不写入文件。
+- `generate <directory>`：消费相同的不可变计划，在整批冲突和路径预检通过后写入普通 Java 源码。
 
-未来的 `generate` 必须建立在稳定的应用服务接口上，并在实现模板渲染、计划预览、安全写入
-与验证之后才能公开。当前版本不得把 `list` 中的 metadata-only 路线描述为可生成能力。
+当前 `crud` 路线由独立 `GenerationEngine`、不可变计划、FreeMarker 和安全 apply 实现。其余
+metadata-only 路线不得描述为可生成能力。新配置文件名为 `coco-generate.yml`；只存在
+`coco-codegen.yml` 时兼容读取，两个文件同时存在时失败关闭。输出根固定为项目的
+`src/main/java`，保持旧 Maven goal 的默认输出语义。
 
 ### 2.2 Maven 入口
 
@@ -111,16 +116,14 @@ password、private key 等凭据写入 `coco-generate.yml`、生成计划、日�
 
 ### 阶段 1：前向过渡适配
 
-- 本仓可以在独立 adapter 模块中临时依赖
-  `io.github.patton174:coco-feature-codegen:1.0.2`。
-- adapter 必须隐藏在本仓定义的 `GenerationEngine` 边界后，CLI、Maven 和 IDE 入口不得直接
-  使用 framework 类型。
-- 通过双跑 fixture 比较旧 goal 与新 CLI 的计划、路径和内容，差异必须显式记录。
+- 迁入冻结的 CRUD 请求模型、YAML 语义和 FreeMarker 模板到本仓自有包名。
+- `GenerationEngine`、CLI 和计划模型不得直接使用 framework 类型。
+- 通过 golden fixture 比较旧 goal 与新 CLI 的计划、路径和关键源码语义，差异必须显式记录。
 
 ### 阶段 2：模板与引擎独立
 
 - 把通用变量、模板 manifest、渲染与安全写入能力迁入本仓自己的包名和版本契约。
-- 用本仓实现替换 adapter，移除对 `coco-feature-codegen` 的依赖。
+- 本仓实现不依赖 `coco-feature-codegen`。
 - `coco-framework` 保留冻结的兼容实现和必要修复，不新增对本仓的依赖。
 
 ### 阶段 3：入口迁移
