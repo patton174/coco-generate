@@ -40,7 +40,33 @@ class GenerationEngineTest {
                 plan.files().stream().map(GenerationPlan.PlannedFile::relativePath).toList());
         assertTrue(plan.files().stream().anyMatch(file -> file.content().contains("@RequestMapping(\"/products\")")));
         assertTrue(plan.files().stream().anyMatch(file -> file.content().contains("public record Product(")));
+        for (GenerationPlan.PlannedFile file : plan.files()) {
+            assertEquals(resource("/golden/crud/expected/" + file.relativePath()), file.content(), file.relativePath());
+        }
         assertFalse(Files.exists(project.resolve("src/main/java")));
+    }
+
+    @Test
+    void legacyConfigurationNameRemainsExecutableWhenItIsTheOnlyConfiguration() throws Exception {
+        Path project = copyFixture("legacy");
+        Files.move(project.resolve("coco-generate.yml"), project.resolve("coco-codegen.yml"));
+
+        assertEquals(10, engine.plan(project).files().size());
+    }
+
+    @Test
+    void rejectsWindowsJunctionBetweenProjectAndOutputRoot() throws Exception {
+        Path project = copyFixture("junction-project");
+        Path external = Files.createDirectory(temporaryDirectory.resolve("junction-external"));
+        Process process = new ProcessBuilder("cmd", "/c", "mklink /J \"" + project.resolve("src")
+                + "\" \"" + external + "\"").start();
+        assertEquals(0, process.waitFor(), "mklink /J must be available on Windows");
+        try {
+            assertThrows(GenerationException.class, () -> engine.plan(project));
+            assertFalse(Files.exists(external.resolve("main/java/com/example/catalog/domain/product/Product.java")));
+        } finally {
+            new ProcessBuilder("cmd", "/c", "rmdir \"" + project.resolve("src") + "\"").start().waitFor();
+        }
     }
 
     @Test
@@ -59,6 +85,28 @@ class GenerationEngineTest {
     }
 
     @Test
+    void removesPreviouslyCreatedFilesAndNewDirectoriesWhenNthWriteFails() {
+        Path output = temporaryDirectory.resolve("atomic-output");
+        GenerationPlan plan = new GenerationPlan(temporaryDirectory, output, List.of(
+                new GenerationPlan.PlannedFile("first/One.java", "1", "CREATE_NEW", "one"),
+                new GenerationPlan.PlannedFile("second/Two.java", "2", "CREATE_NEW", "two")));
+        GenerationPlanApplier applier = new GenerationPlanApplier((target, content) -> {
+            if (target.getFileName().toString().equals("Two.java")) {
+                throw new IOException("injected second write failure");
+            }
+            Files.writeString(target, content, StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
+        });
+
+        IOException failure = assertThrows(IOException.class, () -> applier.apply(plan));
+
+        assertEquals("injected second write failure", failure.getMessage());
+        assertFalse(Files.exists(output.resolve("first/One.java")));
+        assertFalse(Files.exists(output.resolve("second/Two.java")));
+        assertFalse(Files.exists(output));
+    }
+
+    @Test
     void rejectsAmbiguousCurrentAndLegacyConfigurations() throws Exception {
         Path project = copyFixture("ambiguous");
         Files.copy(project.resolve("coco-generate.yml"), project.resolve("coco-codegen.yml"));
@@ -70,7 +118,8 @@ class GenerationEngineTest {
 
     @Test
     void rejectsUnsafeOutputPathFormsBeforeFilesystemWrites() {
-        for (String unsafe : List.of("../escape.java", "/absolute.java", "C:/absolute.java", "NUL.java")) {
+        for (String unsafe : List.of("../escape.java", "/absolute.java", "C:/absolute.java", "NUL.java",
+                "NUL ", "NUL.", "COM1 .txt", "regular.")) {
             assertThrows(GenerationException.class, () -> SafePaths.normalize(unsafe));
         }
     }
@@ -81,5 +130,11 @@ class GenerationEngineTest {
             Files.copy(source, project.resolve("coco-generate.yml"));
         }
         return project;
+    }
+
+    private static String resource(String name) throws IOException {
+        try (var input = GenerationEngineTest.class.getResourceAsStream(name)) {
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }

@@ -19,7 +19,9 @@ final class SafePaths {
         String[] segments = path.split("/", -1);
         for (String segment : segments) {
             String device = segment.contains(".") ? segment.substring(0, segment.indexOf('.')) : segment;
+            device = device.stripTrailing();
             if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment) || segment.indexOf(':') >= 0
+                    || segment.endsWith(".") || segment.endsWith(" ")
                     || DEVICES.contains(device.toUpperCase(Locale.ROOT))) {
                 throw new GenerationException("unsafe generated path: " + value);
             }

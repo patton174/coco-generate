@@ -68,6 +68,28 @@ class CocoGenerateCliTest {
         assertTrue(result.error().contains("Usage: coco-generate generate"));
     }
 
+    @Test
+    void missingConfigurationReturnsIoExitCode() throws Exception {
+        Path project = Files.createDirectory(temporaryDirectory.resolve("missing-config"));
+
+        CommandResult result = invoke("generate", project.toString());
+
+        assertEquals(CocoGenerateCli.EXIT_IO, result.exitCode());
+        assertTrue(result.error().contains("missing coco-generate.yml"));
+    }
+
+    @Test
+    void existingGeneratedSourcesReturnConflictExitCode() {
+        Path project = temporaryDirectory.resolve("generated");
+        assertEquals(0, invoke("init", project.toString()).exitCode());
+        assertEquals(0, invoke("generate", project.toString()).exitCode());
+
+        CommandResult result = invoke("generate", project.toString());
+
+        assertEquals(CocoGenerateCli.EXIT_CONFLICT, result.exitCode());
+        assertTrue(result.error().contains("collision"));
+    }
+
     private CommandResult invoke(String... args) {
         StringWriter output = new StringWriter();
         StringWriter error = new StringWriter();

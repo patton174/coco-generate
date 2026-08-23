@@ -116,7 +116,10 @@ public final class CocoGenerateCli {
         } catch (IllegalArgumentException ex) {
             err.println("Unable to generate Coco sources: " + ex.getMessage());
             return EXIT_USAGE;
-        } catch (IOException | GenerationException ex) {
+        } catch (IOException ex) {
+            err.println("Unable to generate Coco sources: " + ex.getMessage());
+            return EXIT_IO;
+        } catch (GenerationException ex) {
             err.println("Unable to generate Coco sources: " + ex.getMessage());
             return EXIT_CONFLICT;
         }

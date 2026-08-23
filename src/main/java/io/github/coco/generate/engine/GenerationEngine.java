@@ -52,6 +52,7 @@ public final class GenerationEngine {
             rendered.addAll(render(builder.build().toRequest()));
         }
         Path output = project.resolve("src/main/java").normalize();
+        SafeFileSystem.verifyProjectTo(project, output);
         Set<String> paths = new LinkedHashSet<>();
         List<GenerationPlan.PlannedFile> files = new ArrayList<>();
         for (GeneratedFile file : rendered) {
@@ -127,9 +128,10 @@ public final class GenerationEngine {
 
     private static Path requireProject(Path value) throws IOException {
         Path project = value.toAbsolutePath().normalize();
-        if (!Files.isDirectory(project, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(project)) {
+        if (!Files.isDirectory(project, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("project directory is not a regular directory: " + project);
         }
+        SafeFileSystem.verifyProjectDirectory(project);
         return project;
     }
 
