@@ -15,14 +15,21 @@ public final class ProjectInitializer {
     public static final String CONFIG_FILE_NAME = "coco-generate.yml";
 
     private static final String INITIAL_CONFIGURATION = """
-            # Coco Generate project configuration.
-            # Source generation is not implemented in this initial foundation.
-            schemaVersion: 1
-            output:
-              directory: generated-sources/coco
-              overwrite: false
-            templates: []
-            variables: {}
+            # Coco Generate CRUD specification. Output is src/main/java.
+            base-package: com.example.application
+            resources:
+              - name: Example
+                table: example
+                id:
+                  name: id
+                  column: id
+                  type: Long
+                  strategy: AUTO
+                fields:
+                  - name: name
+                    column: name
+                    type: String
+                    required: true
             """;
 
     /**

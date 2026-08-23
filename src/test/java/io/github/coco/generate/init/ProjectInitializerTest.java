@@ -35,9 +35,8 @@ class ProjectInitializerTest {
                 configuration);
         assertTrue(Files.isRegularFile(configuration));
         String content = Files.readString(configuration, StandardCharsets.UTF_8);
-        assertTrue(content.contains("schemaVersion: 1"));
-        assertTrue(content.contains("overwrite: false"));
-        assertTrue(content.contains("templates: []"));
+        assertTrue(content.contains("base-package:"));
+        assertTrue(content.contains("resources:"));
         String lowerCase = content.toLowerCase(Locale.ROOT);
         assertFalse(lowerCase.contains("password"));
         assertFalse(lowerCase.contains("privatekey"));

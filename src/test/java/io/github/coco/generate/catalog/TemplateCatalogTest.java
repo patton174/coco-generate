@@ -23,7 +23,8 @@ class TemplateCatalogTest {
                         "inventory",
                         "finance"),
                 catalog.templates().stream().map(TemplateManifest::id).toList());
-        assertTrue(catalog.templates().stream()
+        assertEquals("executable", catalog.templates().get(0).status());
+        assertTrue(catalog.templates().stream().skip(1)
                 .allMatch(template -> "metadata-only".equals(template.status())));
         assertTrue(catalog.templates().stream()
                 .allMatch(template -> "readable-source".equals(template.outputKind())));

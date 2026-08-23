@@ -1,0 +1,22 @@
+base-package: com.example.catalog
+resources:
+  - name: Product
+    table: catalog_product
+    id:
+      name: id
+      column: id
+      type: Long
+      strategy: AUTO
+    fields:
+      - name: sku
+        column: sku
+        type: String
+        required: true
+      - name: name
+        column: name
+        type: String
+        required: true
+      - name: unitPrice
+        column: unit_price
+        type: BigDecimal
+        required: true

@@ -11,6 +11,10 @@ import io.github.coco.generate.catalog.TemplateCatalog;
 import io.github.coco.generate.catalog.TemplateManifest;
 import io.github.coco.generate.init.ProjectInitializer;
 import io.github.coco.generate.init.ProjectInitializer.ConfigurationExistsException;
+import io.github.coco.generate.engine.GenerationEngine;
+import io.github.coco.generate.engine.GenerationException;
+import io.github.coco.generate.engine.GenerationPlan;
+import io.github.coco.generate.engine.GenerationPlanApplier;
 
 /** Command-line entry point for the Coco Generate development tool. */
 public final class CocoGenerateCli {
@@ -25,13 +29,16 @@ public final class CocoGenerateCli {
 
     private final ProjectInitializer initializer;
 
+    private final GenerationEngine engine;
+
     public CocoGenerateCli() {
-        this(TemplateCatalog.builtIn(), new ProjectInitializer());
+        this(TemplateCatalog.builtIn(), new ProjectInitializer(), new GenerationEngine());
     }
 
-    CocoGenerateCli(TemplateCatalog catalog, ProjectInitializer initializer) {
+    CocoGenerateCli(TemplateCatalog catalog, ProjectInitializer initializer, GenerationEngine engine) {
         this.catalog = Objects.requireNonNull(catalog, "catalog must not be null");
         this.initializer = Objects.requireNonNull(initializer, "initializer must not be null");
+        this.engine = Objects.requireNonNull(engine, "engine must not be null");
     }
 
     /**
@@ -67,6 +74,8 @@ public final class CocoGenerateCli {
         return switch (safeArgs[0]) {
             case "list" -> list(safeArgs, out, err);
             case "init" -> init(safeArgs, out, err);
+            case "plan" -> plan(safeArgs, out, err);
+            case "generate" -> generate(safeArgs, out, err);
             default -> usageError("Unknown command: " + safeArgs[0], err);
         };
     }
@@ -75,13 +84,53 @@ public final class CocoGenerateCli {
         if (args.length != 1) {
             return usageError("list does not accept arguments", err);
         }
-        out.println("Built-in template routes (metadata only):");
+        out.println("Built-in template routes:");
         for (TemplateManifest template : catalog.templates()) {
             out.printf("  %-14s %s [%s]%n", template.id(), template.description(), template.status());
         }
-        out.println();
-        out.println("Source generation is not implemented in this initial foundation.");
         return 0;
+    }
+
+    private int plan(String[] args, PrintWriter out, PrintWriter err) {
+        if (args.length != 2) return usageError("Usage: coco-generate plan <project-directory>", err);
+        try {
+            printPlan(engine.plan(Path.of(args[1])), out);
+            return 0;
+        } catch (IllegalArgumentException ex) {
+            err.println("Unable to plan Coco Generate sources: " + ex.getMessage());
+            return EXIT_USAGE;
+        } catch (IOException | GenerationException ex) {
+            err.println("Unable to plan Coco Generate sources: " + ex.getMessage());
+            return EXIT_IO;
+        }
+    }
+
+    private int generate(String[] args, PrintWriter out, PrintWriter err) {
+        if (args.length != 2) return usageError("Usage: coco-generate generate <project-directory>", err);
+        try {
+            GenerationPlan plan = engine.plan(Path.of(args[1]));
+            new GenerationPlanApplier().apply(plan);
+            printPlan(plan, out);
+            out.println("Generated " + plan.files().size() + " files.");
+            return 0;
+        } catch (IllegalArgumentException ex) {
+            err.println("Unable to generate Coco sources: " + ex.getMessage());
+            return EXIT_USAGE;
+        } catch (IOException ex) {
+            err.println("Unable to generate Coco sources: " + ex.getMessage());
+            return EXIT_IO;
+        } catch (GenerationException ex) {
+            err.println("Unable to generate Coco sources: " + ex.getMessage());
+            return EXIT_CONFLICT;
+        }
+    }
+
+    private static void printPlan(GenerationPlan plan, PrintWriter out) {
+        out.println("Output: " + plan.outputDirectory());
+        for (GenerationPlan.PlannedFile file : plan.files()) {
+            out.println(file.action() + " " + file.relativePath() + " " + file.sha256());
+        }
+        out.println("Planned " + plan.files().size() + " files.");
     }
 
     private int init(String[] args, PrintWriter out, PrintWriter err) {
@@ -124,9 +173,9 @@ public final class CocoGenerateCli {
         out.println();
         out.println("Commands:");
         out.println("  help                 Show this help text");
-        out.println("  list                 List built-in template route metadata");
+        out.println("  list                 List built-in template routes and their status");
         out.println("  init <directory>     Create a protected coco-generate.yml");
-        out.println();
-        out.println("Source generation is not implemented in this initial foundation.");
+        out.println("  plan <directory>     Print the CRUD source plan without writing files");
+        out.println("  generate <directory> Apply the CRUD source plan with CREATE_NEW writes");
     }
 }

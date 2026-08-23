@@ -11,18 +11,18 @@ own.
 
 ## Current Status
 
-This repository is an initial runnable foundation. The CLI currently supports:
+The CLI provides a runnable CRUD source-generation route:
 
 - `help` - show the available commands;
-- `list` - list built-in template routes and their metadata;
+- `list` - list built-in template routes and their implementation status;
 - `init <directory>` - create a safe starter `coco-generate.yml` without
   overwriting an existing file.
+- `plan <directory>` - render and print deterministic CRUD targets without writing;
+- `generate <directory>` - apply that plan using `CREATE_NEW` only.
 
-The catalog currently contains metadata for `crud`, `admin-module`,
-`master-data`, `purchase`, `sales`, `inventory`, and `finance`. Source
-generation, Maven plugin integration, and IDE integration are not implemented
-yet. The listed routes are product directions, not empty generated Java
-modules.
+`crud` is executable. `admin-module`, `master-data`, `purchase`, `sales`,
+`inventory`, and `finance` remain metadata-only product routes. Maven plugin
+and IDE integration are not implemented.
 
 ## Run The CLI
 
@@ -34,6 +34,8 @@ mvn -B -ntp verify
 java -jar target/coco-generate-0.1.0-SNAPSHOT.jar help
 java -jar target/coco-generate-0.1.0-SNAPSHOT.jar list
 java -jar target/coco-generate-0.1.0-SNAPSHOT.jar init ./example
+java -jar target/coco-generate-0.1.0-SNAPSHOT.jar plan ./example
+java -jar target/coco-generate-0.1.0-SNAPSHOT.jar generate ./example
 ```
 
 For development, the same entry point can be invoked through Maven:
@@ -50,6 +52,12 @@ generator after creation. Existing files are protected by default.
 
 The detailed product and migration contract is documented in
 [docs/specs/2026-07-11-coco-generate-product-boundary.md](docs/specs/2026-07-11-coco-generate-product-boundary.md).
+The CLI reads `coco-generate.yml`; a project containing only the legacy
+`coco-codegen.yml` is accepted during the compatibility window. Both files in
+one project are rejected to avoid ambiguous generation. Output is written below
+`src/main/java`; existing files, unsafe paths, and symbolic-link escapes fail
+closed. The framework `coco:generate` goal remains supported by coco-framework
+through its separately announced compatibility window.
 
 ## Related Repositories
 

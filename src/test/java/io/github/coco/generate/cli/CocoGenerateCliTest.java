@@ -21,18 +21,19 @@ class CocoGenerateCliTest {
     private final CocoGenerateCli cli = new CocoGenerateCli();
 
     @Test
-    void helpReportsOnlyImplementedCommands() {
+    void helpReportsImplementedCommands() {
         CommandResult result = invoke("help");
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("help"));
         assertTrue(result.output().contains("list"));
         assertTrue(result.output().contains("init <directory>"));
-        assertTrue(result.output().contains("Source generation is not implemented"));
+        assertTrue(result.output().contains("plan <directory>"));
+        assertTrue(result.output().contains("generate <directory>"));
     }
 
     @Test
-    void listPrintsEveryMetadataOnlyRoute() {
+    void listDistinguishesExecutableAndMetadataOnlyRoutes() {
         CommandResult result = invoke("list");
 
         assertEquals(0, result.exitCode());
@@ -41,8 +42,9 @@ class CocoGenerateCliTest {
         }) {
             assertTrue(result.output().contains(route), () -> "Missing route: " + route);
         }
-        assertTrue(result.output().contains("metadata only"));
-        assertTrue(result.output().contains("not implemented"));
+        assertTrue(result.output().contains("crud"));
+        assertTrue(result.output().contains("[executable]"));
+        assertTrue(result.output().contains("[metadata-only]"));
     }
 
     @Test
@@ -59,11 +61,33 @@ class CocoGenerateCliTest {
     }
 
     @Test
-    void unknownCommandsFailWithoutClaimingGenerationSupport() {
+    void generationRequiresProjectDirectory() {
         CommandResult result = invoke("generate");
 
         assertEquals(CocoGenerateCli.EXIT_USAGE, result.exitCode());
-        assertTrue(result.error().contains("Unknown command: generate"));
+        assertTrue(result.error().contains("Usage: coco-generate generate"));
+    }
+
+    @Test
+    void missingConfigurationReturnsIoExitCode() throws Exception {
+        Path project = Files.createDirectory(temporaryDirectory.resolve("missing-config"));
+
+        CommandResult result = invoke("generate", project.toString());
+
+        assertEquals(CocoGenerateCli.EXIT_IO, result.exitCode());
+        assertTrue(result.error().contains("missing coco-generate.yml"));
+    }
+
+    @Test
+    void existingGeneratedSourcesReturnConflictExitCode() {
+        Path project = temporaryDirectory.resolve("generated");
+        assertEquals(0, invoke("init", project.toString()).exitCode());
+        assertEquals(0, invoke("generate", project.toString()).exitCode());
+
+        CommandResult result = invoke("generate", project.toString());
+
+        assertEquals(CocoGenerateCli.EXIT_CONFLICT, result.exitCode());
+        assertTrue(result.error().contains("collision"));
     }
 
     private CommandResult invoke(String... args) {
