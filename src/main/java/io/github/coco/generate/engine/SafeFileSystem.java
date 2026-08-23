@@ -10,6 +10,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 final class SafeFileSystem {
     private static final int FILE_ATTRIBUTE_REPARSE_POINT = 0x400;
 
+    private static final boolean WINDOWS = System.getProperty("os.name", "").startsWith("Windows");
+
     private SafeFileSystem() {
     }
 
@@ -48,11 +50,14 @@ final class SafeFileSystem {
     }
 
     private static boolean isReparsePoint(Path path) throws IOException {
+        if (!WINDOWS) {
+            return false;
+        }
         try {
             Object value = Files.getAttribute(path, "dos:attributes", LinkOption.NOFOLLOW_LINKS);
             return value instanceof Integer attributes && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
         } catch (UnsupportedOperationException ex) {
-            return false;
+            throw new IOException("DOS attributes are unavailable while checking Windows reparse point: " + path, ex);
         }
     }
 }

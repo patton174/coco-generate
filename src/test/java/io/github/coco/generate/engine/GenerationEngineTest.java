@@ -13,6 +13,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.Assumptions;
 
 class GenerationEngineTest {
     @TempDir
@@ -55,6 +58,7 @@ class GenerationEngineTest {
     }
 
     @Test
+    @EnabledOnOs(OS.WINDOWS)
     void rejectsWindowsJunctionBetweenProjectAndOutputRoot() throws Exception {
         Path project = copyFixture("junction-project");
         Path external = Files.createDirectory(temporaryDirectory.resolve("junction-external"));
@@ -67,6 +71,20 @@ class GenerationEngineTest {
         } finally {
             new ProcessBuilder("cmd", "/c", "rmdir \"" + project.resolve("src") + "\"").start().waitFor();
         }
+    }
+
+    @Test
+    void rejectsSymbolicLinkBetweenProjectAndOutputRoot() throws Exception {
+        Path project = copyFixture("symbolic-link-project");
+        Path external = Files.createDirectory(temporaryDirectory.resolve("symbolic-link-external"));
+        try {
+            Files.createSymbolicLink(project.resolve("src"), external);
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException ex) {
+            Assumptions.abort("symbolic links are unavailable on this test host: " + ex.getMessage());
+        }
+
+        assertThrows(GenerationException.class, () -> engine.plan(project));
+        assertFalse(Files.exists(external.resolve("main/java/com/example/catalog/domain/product/Product.java")));
     }
 
     @Test
