@@ -56,14 +56,34 @@ The CLI reads `coco-generate.yml`; a project containing only the legacy
 `coco-codegen.yml` is accepted during the compatibility window. Both files in
 one project are rejected to avoid ambiguous generation. Output is written below
 `src/main/java`; existing files, unsafe paths, and symbolic-link escapes fail
-closed. The framework `coco:generate` goal remains supported by coco-framework
-through its separately announced compatibility window.
+closed.
+
+## Migrating From `coco:generate`
+
+Coco Framework 3.0.0 removes the `coco-feature-codegen` module, the
+`CocoFeature.CODEGEN` flag, and the `coco-maven-plugin` `coco:generate` goal.
+This repository is the only supported entry point for CRUD source generation.
+The bundled `crud` templates are byte-for-byte identical to the ones the
+framework shipped in 2.x, so generated sources keep the same semantics.
+
+| Legacy `coco:generate` parameter | Coco Generate equivalent |
+| --- | --- |
+| `coco.codegen.spec` (default `coco-codegen.yml`) | `coco-generate.yml` in the project directory; the legacy file name is still read and the YAML structure is unchanged |
+| `coco.codegen.outputDirectory` (default `src/main/java`) | Always `<project>/src/main/java` |
+| `coco.codegen.dryRun=true` | `plan <directory>`, which prints the plan without writing |
+| `coco.codegen.overwrite=true` | No equivalent. Only `CREATE_NEW` is allowed and existing files are reported as conflicts |
+| `coco.codegen.templateLocation` | Not supported; only the built-in `crud` templates are used |
+| `coco.codegen.encoding` | Always UTF-8 |
+
+Projects upgrading to framework 3.0.0 must also drop `codegen` from
+`coco.features.disabled`, `coco.features.enabled`, and `@CocoFeatures`; a
+leftover entry fails the build with a message pointing here.
 
 ## Related Repositories
 
 - [coco-framework](https://github.com/patton174/coco-framework) - the runtime
-  Web framework and the source of the transitional `coco-feature-codegen`
-  contract.
+  Web framework, which no longer contains a generator and must not depend on
+  this repository.
 - [coco-admin](https://github.com/patton174/coco-admin) - an application that
   may consume generated source, without a runtime dependency on this tool.
 
