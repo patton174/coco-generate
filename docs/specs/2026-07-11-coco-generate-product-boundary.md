@@ -40,8 +40,8 @@ metadata-only 路线不得描述为可生成能力。新配置文件名为 `coco
 未来独立的 `coco-generate-maven-plugin` 只做 Maven 参数适配、生命周期接入和错误映射，核心
 生成逻辑由同一应用服务提供。默认 goal 必须显式调用，不得在普通编译中悄悄修改源码。
 
-旧的 `coco-maven-plugin:coco:generate` 在兼容窗口内继续由 `coco-framework` 自己维护；它
-不能通过新增依赖反向调用本仓库。
+旧的 `coco-maven-plugin:coco:generate` 已在 `coco-framework` 3.0.0 中随 `coco-feature-codegen`
+一并移除，兼容窗口结束。仍在使用旧 goal 的项目应改用本仓库 CLI，参数对照见 README。
 
 ### 2.3 IDE 入口
 
@@ -96,7 +96,8 @@ password、private key 等凭据写入 `coco-generate.yml`、生成计划、日�
 不修改文件。apply 必须满足：
 
 1. 输出根目录先转为规范绝对路径；所有目标必须是根目录内的规范相对路径。
-2. 拒绝绝对模板路径、`..` 逃逸、NUL、设备名和指向根目录外的符号链接。
+2. 拒绝绝对模板路径、`..` 逃逸、NUL、设备名和指向根目录外的符号链接。同时拒绝 `< > " | ? *`
+   与 ISO 控制字符，使同一份计划在 Windows 与 POSIX 上具有相同的可写性判定。
 3. 默认只允许 `CREATE_NEW`；已有文件一律失败，并列出冲突。
 4. 未来的覆盖能力必须由显式策略和逐文件 allowlist 控制，不允许全局静默覆盖。
 5. 覆盖写入先写同目录临时文件、校验摘要，再原子移动；失败时不得留下半文件。
@@ -108,34 +109,38 @@ password、private key 等凭据写入 `coco-generate.yml`、生成计划、日�
 
 ## 6. 分阶段迁移
 
-### 阶段 0：冻结兼容基线
+### 阶段 0：冻结兼容基线（已完成）
 
 - 为 `coco-feature-codegen` 和现有 `coco:generate` 建立 golden fixture。
 - 记录 1.0.2 的公开请求模型、模板变量、输出路径、覆盖语义和错误行为。
 - 当前 framework 实现继续工作，不在这一步改变依赖方向。
 
-### 阶段 1：前向过渡适配
+### 阶段 1：前向过渡适配（已完成）
 
 - 迁入冻结的 CRUD 请求模型、YAML 语义和 FreeMarker 模板到本仓自有包名。
 - `GenerationEngine`、CLI 和计划模型不得直接使用 framework 类型。
 - 通过 golden fixture 比较旧 goal 与新 CLI 的计划、路径和关键源码语义，差异必须显式记录。
 
-### 阶段 2：模板与引擎独立
+### 阶段 2：模板与引擎独立（已完成）
 
 - 把通用变量、模板 manifest、渲染与安全写入能力迁入本仓自己的包名和版本契约。
-- 本仓实现不依赖 `coco-feature-codegen`。
+- 本仓实现不依赖 `coco-feature-codegen`：编译期与运行期依赖只有 FreeMarker 和 SnakeYAML。
 - `coco-framework` 保留冻结的兼容实现和必要修复，不新增对本仓的依赖。
 
-### 阶段 3：入口迁移
+### 阶段 3：入口迁移（CLI 已交付，Maven 插件待做）
 
-- 发布独立 CLI 与 `coco-generate-maven-plugin`。
+- 发布独立 CLI 与 `coco-generate-maven-plugin`。CLI 的 `list`/`init`/`plan`/`generate` 已可用；
+  独立 Maven 插件尚未实现，是本阶段唯一剩余项。
 - 文档把新项目推荐为新应用入口，同时明确旧 `coco:generate` 的支持窗口。
 - 现有用户可以继续使用旧 goal；迁移工具把旧参数转换为新配置，并输出可审查 diff。
+  旧 goal 移除后，这一条由 README 的参数对照表承担，不再提供自动转换工具。
 
-### 阶段 4：兼容收敛
+### 阶段 4：兼容收敛（framework 3.0.0 执行中）
 
 - 在已公告的主版本边界后，framework 可以停止增强旧生成器，但保留对应版本的可构建源码。
+  `coco-feature-codegen` 与 `coco:generate` 在 framework 3.0.0 中删除，2.x 分支的源码仍可构建。
 - 删除旧能力必须遵循 framework 自己的兼容政策，不能通过远程下载或运行时回调本仓实现。
+  framework 构建期对退役 feature id `codegen` 报错并指向本仓库，不做静默忽略。
 - `coco-admin` 始终只提交和编译生成后的普通源码。
 
 ## 7. 兼容与验收

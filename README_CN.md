@@ -49,12 +49,30 @@ Coco Generate 只在开发期运行并写出普通源码。它不能演变为运
 [docs/specs/2026-07-11-coco-generate-product-boundary.md](docs/specs/2026-07-11-coco-generate-product-boundary.md)。
 CLI 优先读取 `coco-generate.yml`；兼容窗口内仅存在旧 `coco-codegen.yml` 的项目仍可读取，
 两个文件同时存在则失败关闭。输出根为 `src/main/java`，已有文件、不安全路径与符号链接逃逸均
-会拒绝。旧 `coco:generate` 仍由 coco-framework 在其另行公告的兼容窗口内维护。
+会拒绝。
+
+## 从 `coco:generate` 迁移
+
+Coco Framework 3.0.0 已移除 `coco-feature-codegen` 模块、`CocoFeature.CODEGEN` 功能标识和
+`coco-maven-plugin` 的 `coco:generate` goal，CRUD 源码生成由本仓库唯一承担。内置 `crud`
+模板与框架 2.x 内置模板逐字节一致，生成源码语义不变。
+
+| 旧 `coco:generate` 参数 | Coco Generate 对应方式 |
+| --- | --- |
+| `coco.codegen.spec`（默认 `coco-codegen.yml`） | 项目目录下的 `coco-generate.yml`；旧文件名仍可识别，YAML 结构不变 |
+| `coco.codegen.outputDirectory`（默认 `src/main/java`） | 固定写入 `<项目目录>/src/main/java` |
+| `coco.codegen.dryRun=true` | `plan <directory>`：只打印计划，不写文件 |
+| `coco.codegen.overwrite=true` | 无对应。只允许 `CREATE_NEW`，已有文件一律作为冲突报告 |
+| `coco.codegen.templateLocation` | 暂不支持外部模板根，只使用内置 `crud` 模板 |
+| `coco.codegen.encoding` | 固定 UTF-8 |
+
+升级到框架 3.0.0 的项目还需要从 `coco.features.disabled`、`coco.features.enabled` 和
+`@CocoFeatures` 中删除 `codegen`；残留条目会让构建失败并给出指向本仓库的提示。
 
 ## 相关仓库
 
-- [coco-framework](https://github.com/patton174/coco-framework)：运行时 Web 框架，也是迁移期
-  `coco-feature-codegen` 契约的来源；它不得反向依赖本仓库。
+- [coco-framework](https://github.com/patton174/coco-framework)：运行时 Web 框架，自 3.0.0 起
+  不再包含生成器，且不得反向依赖本仓库。
 - [coco-admin](https://github.com/patton174/coco-admin)：可以接收生成源码，但不得嵌入生成器
   或形成运行时依赖。
 
