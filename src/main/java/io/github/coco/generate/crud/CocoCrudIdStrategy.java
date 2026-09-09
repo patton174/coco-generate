@@ -10,11 +10,11 @@ package io.github.coco.generate.crud;
  * </p>
  * <ul>
  *   <li>作者：<a href="https://github.com/patton174">patton174</a></li>
- *   <li>仓库：<a href="https://github.com/patton174/coco-framework">https://github.com/patton174/coco-framework</a></li>
- *   <li>模块：{@code coco-feature-codegen}</li>
+ *   <li>仓库：<a href="https://github.com/patton174/coco-generate">https://github.com/patton174/coco-generate</a></li>
+ *   <li>模块：{@code coco-generate}</li>
  * </ul>
  * @author patton174
- * @since 1.0.0
+ * @since 0.1.0
  */
 public enum CocoCrudIdStrategy {
 
