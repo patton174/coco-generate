@@ -142,6 +142,16 @@ class GenerationEngineTest {
         }
     }
 
+    @Test
+    void rejectsWindowsReservedCharactersAndControlCharactersInOutputPaths() {
+        for (String unsafe : List.of("angle<.java", "angle>.java", "quote\".java", "pipe|.java", "question?.java",
+                "star*.java", "dir<x/Safe.java", "tab\t.java", "escape\u001b.java", "nul\0.java")) {
+            GenerationException exception = assertThrows(GenerationException.class, () -> SafePaths.normalize(unsafe));
+            assertTrue(exception.getMessage().startsWith("unsafe generated path"), exception.getMessage());
+        }
+        assertEquals("com/example/Safe-Name_1.java", SafePaths.normalize("com\\example\\Safe-Name_1.java"));
+    }
+
     private Path copyFixture(String name) throws IOException {
         Path project = Files.createDirectory(temporaryDirectory.resolve(name));
         try (var source = GenerationEngineTest.class.getResourceAsStream("/golden/crud/coco-generate.yml")) {
