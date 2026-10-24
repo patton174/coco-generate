@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.coco.generate.core.GenerationException;
+import io.github.coco.generate.core.SafePaths;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -45,7 +47,12 @@ class GenerationEngineTest {
         assertTrue(plan.files().stream().anyMatch(file -> file.content().contains("public record Product(")));
         for (GenerationPlan.PlannedFile file : plan.files()) {
             assertEquals(resource("/golden/crud/expected/" + file.relativePath()), file.content(), file.relativePath());
+            assertEquals("crud", file.templateGroup());
+            assertEquals("java", file.kind());
         }
+        assertEquals("builtin", plan.templateRoot());
+        assertEquals("crud", plan.defaultGroup());
+        assertEquals("builtin-1", plan.packVersion());
         assertFalse(Files.exists(project.resolve("src/main/java")));
     }
 

@@ -1,5 +1,7 @@
 package io.github.coco.generate.engine;
 
+import io.github.coco.generate.core.GenerationException;
+import io.github.coco.generate.core.SafePaths;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;

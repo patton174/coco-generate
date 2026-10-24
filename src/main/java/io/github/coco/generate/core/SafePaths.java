@@ -1,11 +1,11 @@
-package io.github.coco.generate.engine;
+package io.github.coco.generate.core;
 
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Set;
 
-/** Normalizes output paths before any filesystem access. */
-final class SafePaths {
+/** Normalizes generated and template-relative paths before any filesystem access. */
+public final class SafePaths {
     private static final Set<String> DEVICES = Set.of("CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4",
             "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9");
 
@@ -15,7 +15,7 @@ final class SafePaths {
     private SafePaths() {
     }
 
-    static String normalize(String value) {
+    public static String normalize(String value) {
         if (value == null || value.isBlank() || value.indexOf('\0') >= 0) throw new GenerationException("unsafe generated path");
         String path = value.replace('\\', '/');
         if (path.startsWith("/") || path.matches("^[A-Za-z]:.*")) throw new GenerationException("generated path must be relative: " + value);

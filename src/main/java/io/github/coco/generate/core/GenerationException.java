@@ -1,7 +1,7 @@
-package io.github.coco.generate.engine;
+package io.github.coco.generate.core;
 
 /** Raised when source generation cannot safely build or apply a plan. */
-public final class GenerationException extends RuntimeException {
+public class GenerationException extends RuntimeException {
     public GenerationException(String message) {
         super(message);
     }

@@ -1,5 +1,6 @@
 package io.github.coco.generate.catalog;
 
+import io.github.coco.generate.template.TemplatePackManifest;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -25,8 +26,10 @@ public record TemplateManifest(
 
     private static final Pattern ID_PATTERN = Pattern.compile("[a-z][a-z0-9-]{1,63}");
 
+    public static final int CURRENT_VERSION = 2;
+
     public TemplateManifest {
-        if (manifestVersion != 1) {
+        if (manifestVersion != CURRENT_VERSION) {
             throw new IllegalArgumentException("Unsupported template manifest version: " + manifestVersion);
         }
         id = requireId(id);
@@ -35,6 +38,19 @@ public record TemplateManifest(
         status = requireText(status, "status");
         outputKind = requireText(outputKind, "outputKind");
         ownership = requireText(ownership, "ownership");
+    }
+
+    /** Projects a validated v2 execution manifest into catalog metadata. */
+    public static TemplateManifest from(TemplatePackManifest manifest) {
+        Objects.requireNonNull(manifest, "manifest must not be null");
+        return new TemplateManifest(
+                manifest.manifestVersion(),
+                manifest.id(),
+                manifest.displayName(),
+                manifest.description(),
+                manifest.status(),
+                manifest.outputKind(),
+                manifest.ownership());
     }
 
     static String requireId(String value) {

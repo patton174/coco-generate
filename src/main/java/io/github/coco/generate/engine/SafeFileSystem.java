@@ -1,5 +1,6 @@
 package io.github.coco.generate.engine;
 
+import io.github.coco.generate.core.GenerationException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
