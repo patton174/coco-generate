@@ -167,7 +167,7 @@ public final class CocoCrudSpec {
                 .build();
     }
 
-    private Map<String, Object> templateModel() {
+    public Map<String, Object> templateModel() {
         Set<String> conflictingTypeNames = conflictingTypeNames(this.resourceName);
         List<Map<String, Object>> fieldModels = this.fields.stream()
                 .map(field -> field.toTemplateModel(conflictingTypeNames))

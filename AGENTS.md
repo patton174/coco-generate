@@ -41,6 +41,83 @@ generation.
 - If `.codegraph/` exists, use CodeGraph before broad source searches. After
   source changes, run `codegraph sync .` when the CLI is available.
 
+## Template Pack Contract
+
+Phase 1 accepts only v2 template packs. Bundled routes and external roots use
+the same loader:
+
+```text
+<template-root>/
+  index.txt
+  <group>/
+    manifest.properties
+    templates/
+      *.ftl
+```
+
+- `index.txt` lists one group per line; `#` starts a comment.
+- `manifestVersion` must be `2`; v1 manifests are rejected, not adapted.
+- `manifest.properties` must declare `template.count`; executable packs need at
+  least one template, metadata-only packs use `template.count=0`.
+- Template sources are relative to the group directory and must start with
+  `templates/`.
+- An external `template.location` replaces the built-in root; there is no
+  overlay.
+- Variables support `string`, `boolean`, `integer`, `enum`, `any`, `list<T>`,
+  `map<T>`, and `object`, nested at most five levels. `enum` is top-level only.
+- Precedence is manifest default < root `vars` < resource `vars` < CLI `--var`.
+  When a pack declares variables, undeclared keys are rejected.
+- Templates read `_coco`, `vars`, `crud`, and `resource`. The bundled CRUD
+  templates continue to use `${crud.*}` and must remain byte-compatible.
+- Templates are data. `?new` and `?api` stay disabled, template paths must stay
+  inside the template root, output paths must stay inside the project, and
+  generated files remain `CREATE_NEW` under `src/main/java`.
+
+Minimal external manifest:
+
+```properties
+manifestVersion=2
+id=company-crud
+displayName=Company CRUD
+description=Company-standard CRUD source layout.
+status=executable
+outputKind=readable-source
+ownership=business-project
+packVersion=1.0.0
+variable.count=1
+variable.0.name=author
+variable.0.type=string
+variable.0.required=true
+template.count=1
+template.0.source=templates/domain.java.ftl
+template.0.output=${crud.basePackagePath}/domain/${crud.resourcePackage}/${crud.resourceName}.java
+template.0.kind=java
+```
+
+Project configuration:
+
+```yaml
+template:
+  location: ./.coco/templates
+  group: company-crud
+vars:
+  author: platform-team
+base-package: com.example.catalog
+resources:
+  - name: Product
+    table: catalog_product
+    id:
+      name: id
+      column: id
+      type: Long
+      strategy: AUTO
+    fields:
+      - name: sku
+        column: sku
+        type: String
+        required: true
+```
+
 ## Verification
 
 ```powershell
@@ -49,6 +126,7 @@ $env:Path="$env:JAVA_HOME\bin;$env:Path"
 mvn -B -ntp verify
 java -jar target/coco-generate-0.1.0-SNAPSHOT.jar help
 java -jar target/coco-generate-0.1.0-SNAPSHOT.jar list
+java -jar target/coco-generate-0.1.0-SNAPSHOT.jar list --template-root .\.coco\templates
 ```
 
 Before reporting completion, check `git status -sb`. Do not commit generated

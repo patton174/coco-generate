@@ -3,10 +3,14 @@ package io.github.coco.generate.config;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.Charset;
+import java.nio.charset.IllegalCharsetNameException;
+import java.nio.charset.UnsupportedCharsetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -22,9 +26,12 @@ import org.yaml.snakeyaml.error.YAMLException;
 /** Strict parser for the compatible CRUD YAML document. */
 public final class CrudYamlParser {
 
-    private static final Set<String> ROOT_KEYS = Set.of("base-package", "resources");
+    private static final Set<String> ROOT_KEYS = Set.of("template", "vars", "base-package", "resources");
 
-    private static final Set<String> RESOURCE_KEYS = Set.of("name", "table", "api-path", "id", "fields");
+    private static final Set<String> TEMPLATE_KEYS = Set.of("location", "group", "encoding");
+
+    private static final Set<String> RESOURCE_KEYS = Set.of(
+            "name", "table", "api-path", "template", "vars", "id", "fields");
 
     private static final Set<String> ID_KEYS = Set.of("name", "column", "type", "strategy");
 
@@ -42,10 +49,19 @@ public final class CrudYamlParser {
             "String", "Object", "BigDecimal", "BigInteger", "LocalDate", "LocalTime", "LocalDateTime",
             "OffsetDateTime", "ZonedDateTime", "Instant", "Duration", "UUID", "Date");
 
+    private static final Set<String> RESERVED_VARIABLE_NAMES = Set.of(
+            "_coco", "crud", "resource", "vars", "templateGroup", "targetPackage",
+            "basePackage", "basePackagePath", "resourceName", "resourceVariable",
+            "resourcePackage", "tableName", "apiPath");
+
     private static final Pattern SQL_IDENTIFIER = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
     private static final Pattern API_PATH = Pattern.compile(
             "/[A-Za-z0-9][A-Za-z0-9_-]*(?:/[A-Za-z0-9][A-Za-z0-9_-]*)*");
+
+    private static final Pattern GROUP_ID = Pattern.compile("[a-z][a-z0-9-]{1,63}");
+
+    private static final Pattern VARIABLE_NAME = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
     /** Parses one UTF-8-compatible CRUD YAML document. */
     public CrudYamlSpec parse(Path path, Charset charset) throws IOException {
@@ -73,6 +89,8 @@ public final class CrudYamlParser {
     private CrudYamlSpec parseDocument(Object document) {
         Map<?, ?> root = mapping(document, "$", "mapping");
         validateKeys(root, ROOT_KEYS, "$");
+        CrudYamlSpec.TemplateSpec template = parseTemplate(root);
+        Map<String, Object> vars = parseVars(root, "vars", "$.vars");
         String basePackage = requiredText(root, "base-package", "$");
         validatePackage(basePackage, "$.base-package");
 
@@ -89,7 +107,24 @@ public final class CrudYamlParser {
             }
             resources.add(resource);
         }
-        return new CrudYamlSpec(basePackage, resources);
+        return new CrudYamlSpec(basePackage, template, vars, resources);
+    }
+
+    private static CrudYamlSpec.TemplateSpec parseTemplate(Map<?, ?> root) {
+        if (!root.containsKey("template")) {
+            return CrudYamlSpec.TemplateSpec.defaults();
+        }
+        Map<?, ?> template = mapping(root.get("template"), "$.template", "mapping");
+        validateKeys(template, TEMPLATE_KEYS, "$.template");
+        String location = optionalText(template, "location", "$.template");
+        String group = optionalText(template, "group", "$.template");
+        String encoding = optionalText(template, "encoding", "$.template");
+        location = location == null ? "builtin" : location;
+        group = group == null ? "crud" : group;
+        encoding = encoding == null ? "UTF-8" : encoding;
+        validateGroupId(group, "$.template.group");
+        validateEncoding(encoding, "$.template.encoding");
+        return new CrudYamlSpec.TemplateSpec(location, group, encoding);
     }
 
     private CrudYamlSpec.Resource parseResource(Object value, String location) {
@@ -106,6 +141,11 @@ public final class CrudYamlParser {
         if (apiPath != null && !API_PATH.matcher(apiPath).matches()) {
             throw validation(location + ".api-path must be an absolute API path without query, fragment, or traversal");
         }
+        String template = optionalText(resource, "template", location);
+        if (template != null) {
+            validateGroupId(template, location + ".template");
+        }
+        Map<String, Object> vars = parseVars(resource, "vars", location + ".vars");
 
         CrudYamlSpec.Id id = parseId(requiredValue(resource, "id", location), location + ".id");
         List<?> fieldValues = requiredList(resource, "fields", location);
@@ -130,7 +170,7 @@ public final class CrudYamlParser {
             }
             fields.add(field);
         }
-        return new CrudYamlSpec.Resource(name, table, apiPath, id, fields);
+        return new CrudYamlSpec.Resource(name, table, apiPath, template, vars, id, fields);
     }
 
     private CrudYamlSpec.Id parseId(Object value, String location) {
@@ -163,6 +203,55 @@ public final class CrudYamlParser {
         validateJavaType(type, location + ".type");
         boolean required = optionalBoolean(field, "required", location, false);
         return new CrudYamlSpec.Field(name, column, type, required);
+    }
+
+    private static Map<String, Object> parseVars(Map<?, ?> parent, String key, String location) {
+        if (!parent.containsKey(key)) {
+            return Map.of();
+        }
+        Map<?, ?> vars = mapping(parent.get(key), location, "mapping");
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : vars.entrySet()) {
+            if (!(entry.getKey() instanceof String name)) {
+                throw validation(location + " contains a non-string key of type " + typeName(entry.getKey()));
+            }
+            validateVariableName(name, location + "." + name);
+            if (RESERVED_VARIABLE_NAMES.contains(name)) {
+                throw validation(location + "." + name + " uses a reserved template variable name");
+            }
+            normalized.put(name, normalizeValue(entry.getValue(), location + "." + name));
+        }
+        return Collections.unmodifiableMap(normalized);
+    }
+
+    private static Object normalizeValue(Object value, String location) {
+        if (value == null) {
+            throw validation(location + " must not be null");
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (!(entry.getKey() instanceof String key)) {
+                    throw validation(location + " contains a non-string key of type " + typeName(entry.getKey()));
+                }
+                normalized.put(key, normalizeValue(entry.getValue(), location + "." + key));
+            }
+            return Collections.unmodifiableMap(normalized);
+        }
+        if (value instanceof List<?> list) {
+            List<Object> normalized = new ArrayList<>(list.size());
+            for (int index = 0; index < list.size(); index++) {
+                normalized.add(normalizeValue(list.get(index), location + "[" + index + "]"));
+            }
+            return List.copyOf(normalized);
+        }
+        if (value instanceof String || value instanceof Boolean || value instanceof Character
+                || value instanceof Byte || value instanceof Short || value instanceof Integer
+                || value instanceof Long || value instanceof Float || value instanceof Double
+                || value instanceof java.math.BigInteger || value instanceof java.math.BigDecimal) {
+            return value;
+        }
+        throw validation(location + " contains unsupported value type " + typeName(value));
     }
 
     private static Yaml yaml() {
@@ -286,6 +375,27 @@ public final class CrudYamlParser {
         }
         for (String segment : segments) {
             validateJavaIdentifier(segment, location);
+        }
+    }
+
+    private static void validateVariableName(String value, String location) {
+        if (!VARIABLE_NAME.matcher(value).matches() || SourceVersion.isKeyword(value)) {
+            throw validation(location + " must be a valid Java-style variable name, but was '" + value + "'");
+        }
+    }
+
+    private static void validateGroupId(String value, String location) {
+        if (!GROUP_ID.matcher(value).matches()) {
+            throw validation(location + " must match [a-z][a-z0-9-]{1,63}, but was '" + value + "'");
+        }
+    }
+
+    private static void validateEncoding(String value, String location) {
+        try {
+            Charset.forName(value);
+        }
+        catch (IllegalCharsetNameException | UnsupportedCharsetException ex) {
+            throw validation(location + " has unsupported charset '" + value + "'");
         }
     }
 

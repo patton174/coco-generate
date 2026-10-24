@@ -16,6 +16,13 @@ public final class ProjectInitializer {
 
     private static final String INITIAL_CONFIGURATION = """
             # Coco Generate CRUD specification. Output is src/main/java.
+            # Optional: point at an external template pack and define custom variables.
+            # template:
+            #   location: ./.coco/templates
+            #   group: company-crud
+            #   encoding: UTF-8
+            # vars:
+            #   author: platform-team
             base-package: com.example.application
             resources:
               - name: Example
